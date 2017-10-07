@@ -11,6 +11,7 @@
  
 define( 'JL_UAT_TAXONOMY', 'userlist' );
 define( 'JL_UAT_META_KEY', 'user_id' );
+define( 'JL_UAT_META_NAME', 'User ID' );
  // create the taxonomy
 
 // Register Custom Taxonomy
@@ -66,7 +67,7 @@ function jl_uat_add( $user_id ) {
      * display_name
      */
 
-     $user = get_userdata( $user_id );
+    $user = get_userdata( $user_id );
 
     $term = wp_insert_term( $user->display_name, JL_UAT_TAXONOMY );
 
@@ -101,23 +102,50 @@ add_action( 'profile_update', 'jl_uat_update', 0 );
 // 1.0 will limit to just 'post'
 
 /**
- * Show the user id that is associated with this term, not editable
+ * Show the user id that is associated with this term
+ * Potential for abuse, changing to an admin user, etc
  *
  * @param Object $term
  * @param Object $taxonomy
  * @return void
  */
-function edit_taxonomy_field( $term, $taxonomy ){
-    // get current group
+function jl_uat_edit_taxonomy_field( $term ){
+    // get current value
     $user_id = get_term_meta( $term->term_id, JL_UAT_META_KEY, true );
     
     ?><tr class="form-field term-group-wrap">
-        <th scope="row"><label for="feature-group"><?php _e( 'User ID', '' ); ?></label></th>
-        <td><?php echo $user_id; ?></td>
+        <th scope="row"><label for="feature-group"><?php _e( JL_UAT_META_NAME, '' ); ?></label></th>
+        <td><input name="term_meta[<?php echo JL_UAT_TAXONOMY; ?>]" id="<?php echo JL_UAT_TAXONOMY; ?>" type="text" value="<?php echo $user_id; ?>" size="40" /></td>
     </tr><?php
 }
-add_action( JL_UAT_TAXONOMY . '_edit_form_fields', 'edit_taxonomy_field', 10, 2 );
+add_action( JL_UAT_TAXONOMY . '_add_form_fields', 'jl_uat_edit_taxonomy_field', 10, 2 );
+add_action( JL_UAT_TAXONOMY . '_edit_form_fields', 'jl_uat_edit_taxonomy_field', 10, 2 );
 
+/**
+ * Save the edited field
+ *
+ * @return void
+ */
+function jl_uat_extra_fields_save( $term_id ) {
+    
+    if ( !isset( $_POST['term_meta'] ) ) return;
+
+    foreach ( $_POST['term_meta'] as $slug => $value){
+
+        switch($slug){
+            default:
+                $value = sanitize_title( $value );
+            break;
+        }
+
+        update_term_meta( $term_id, $slug, $value );
+    }
+
+}
+
+add_action( 'edited_' . JL_UAT_TAXONOMY, 'jl_uat_extra_fields_save', 10, 2);
+add_action( 'created_' . JL_UAT_TAXONOMY, 'jl_uat_extra_fields_save', 10, 2);
+    
 /**
  * Find a term by it's meta data user_id
  *
